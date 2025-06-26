@@ -6,6 +6,7 @@ import 'package:custom_refresh_indicator/custom_refresh_indicator.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:future_progress_dialog/future_progress_dialog.dart';
 import 'package:intl/intl.dart';
 import 'package:sephora/config/navigation/route_observer.dart';
 import 'package:sephora/main.dart';
@@ -283,6 +284,16 @@ class _EstadisticaScreenState extends State<EstadisticaScreen>
                                 ],
                               ),
                             ),
+                            PopupMenuItem<int>(
+                              value: 3,
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.delete_forever),
+                                  SizedBox(width: size.width * 0.03),
+                                  const Text("Eliminar registros sin Salida", style: TextStyle(color: myColor)),
+                                ],
+                              ),
+                            ),
                           ];
                         },
                         onSelected: (value) {
@@ -290,6 +301,8 @@ class _EstadisticaScreenState extends State<EstadisticaScreen>
                             onWillPop1();
                           }else if (value == 2) {
                             onWillPop2();
+                          }else if (value == 3) {
+                            onWillPop3();
                           }
                         },
                       ),
@@ -557,6 +570,33 @@ class _EstadisticaScreenState extends State<EstadisticaScreen>
     false;
   }
 
+  Future<bool> onWillPop3() async {
+    return (await showDialog(
+      barrierDismissible: false,
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Center(child: Text('Eliminar')),
+        content: const Text('¿Deseas eliminar registros Sin Salida?', textAlign: TextAlign.center, style: TextStyle(fontSize: 17),),
+        shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(32.0))),
+        actions: <Widget>[
+          OutlinedButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('No'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.of(context).pop(false);
+              showProgress(context);
+            },
+            child: const Text('Si'),
+          ),
+        ],
+      ),
+    )) ??
+    false;
+  }
+
   Future<String> _getExcel(fechaInicio, fechaFin) async {
     var url = "$https://$host$path/registro/getExcel/$fechaInicio/$fechaFin";
     // ignore: deprecated_member_use
@@ -579,6 +619,140 @@ class _EstadisticaScreenState extends State<EstadisticaScreen>
       throw 'Could not launch $url';
     }
     return '';
+  }
+
+  //showProgress
+  showProgress(context) async {
+    var result = await showDialog(
+      context: context,
+      builder: (context) => FutureProgressDialog(_deleteRegistrosSinSalida()),
+    );
+
+    // ignore: use_build_context_synchronously
+    showResultDialog(context, result);
+  }
+
+  Future<String> _deleteRegistrosSinSalida() async {
+    try {
+      final response = await http.post(
+          Uri(
+            scheme: https,
+            host: host,
+            path: "/registro/deleteRegistrosSinSalida/",
+          ),
+          headers: <String, String>{
+            'Content-Type': 'application/json; charset=UTF-8',
+            'Access-Control-Allow-Origin': '*'
+          });
+      if (response.statusCode == 200) {
+        String body3 = utf8.decode(response.bodyBytes);
+        var jsonData = jsonDecode(body3);
+        return jsonData['message'];
+      } else {
+        return 'Error, verificar conexión a Internet';
+      }
+    } catch (e) {
+      return 'Error, verificar conexión a Internet';
+    }
+  }
+
+  Future<void> showResultDialog(context, String result) async {
+    if (result == 'Error, verificar conexión a Internet' || result == 'Ocurrio algo extraño, Vuelve a intentar' || result == 'No hay registros') {
+      HapticFeedback.heavyImpact();
+      scaffoldMessengerKey.currentState?.showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const SizedBox(width: 10),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.redAccent, 
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.black),
+                ),
+                child: const Icon(
+                  Icons.check,
+                  color: Colors.black,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(result,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontStyle: FontStyle.normal,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 16,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          elevation: 10,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }else{
+      HapticFeedback.heavyImpact();
+      scaffoldMessengerKey.currentState?.showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const SizedBox(width: 10),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.green, 
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.black),
+                ),
+                child: const Icon(
+                  Icons.check,
+                  color: Colors.black,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  result,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontStyle: FontStyle.normal,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 16,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          elevation: 10,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+      isFirstLoadRunning = false;
+      hasNextPage = true;
+      isLoadMoreRunning = false;
+      items = [];
+      page = 1;
+      fistLoad();
+      controller = ScrollController()..addListener(loadMore);
+      return setState(() {});
+    } 
   }
 
   _datePicker() async {
